@@ -1,26 +1,29 @@
-        # Hostile Reviewer Response
+# Hostile Reviewer Response
 
-        Paper: 74 Data Engine Failure Stratification
+## Reviewer Claim
 
-        ## Strongest Technical Threats
-        - Big Data and Telemetry Data Methodology for Usage Failure Mode Detection (2024)
-- Scaling Cross-Environment Failure Reasoning Data for Vision-Language Robotic Manipulation (2025)
-- A new data envelopment analysis-based model for failure mode and effect analysis with heterogeneous information (2021)
-- Correction to: 2016 ACC/AHA/HFSA Focused Update on New Pharmacological Therapy for Heart Failure: An Update of the 2013 ACCF/AHA Guideline for the Management of Heart Failure: A Report of the American College of Cardiology Foundation/American Heart Association Task Force on Clinical Practice Guidelines and the Heart Failure Society of America (2016)
-- Method for correlation of failure data from durability tests and field of automotive engine parts with spontaneous failure mode (2026)
-- Development and validation of a new prognostic model for patients with acute-on-chronic liver failure in intensive care unit (2024)
-- Failure Prediction at Runtime for Generative Robot Policies (2025)
-- Severity Stratification and Outcome Prediction for Multisystem Organ Failure and Dysfunction (1996)
+Failure stratification is just active failure prediction with a more complicated acquisition heuristic. Unless it improves downstream selection, the mechanism language is decorative.
 
-        ## ICLR Main Response
-        A hostile ICLR reviewer would be correct to reject this as a main-conference submission. The v2 paper has reproducible synthetic evidence and careful limitations, but it does not contain the real robot, high-fidelity simulator, learned model, or manual related-work depth needed for the ICLR main track.
+## Evidence-Based Response
 
-        ## Honest Action
-        The paper is marked `KILL_ARCHIVE`. This avoids converting a generated workshop-style idea into an overstated main-conference claim.
+The hostile reviewer is right for this rebuild. The proposed `failure_stratified_engine` does not beat `failure_prediction_active_learning` on the decisive `combined_tail_stress` metric. It reaches 0.643 +/- 0.058 robust success versus 0.675 +/- 0.055 for active failure prediction, with paired success difference -0.032 +/- 0.047.
 
-        ## What Would Be Needed To Revive
-        - Real robot or high-fidelity benchmark experiments.
-        - Implemented model and baselines, not synthetic probability tables.
-        - Manual full-paper related-work audit.
-        - Paper-specific writing and figures.
-        - Evidence that the core mechanism is learned and useful under deployment shift.
+## Reviewer Claim
+
+Rare failure recall is not enough if the policy selector still fails.
+
+## Evidence-Based Response
+
+Also correct. The proposed engine improves paired rare recall by 0.053 against active failure prediction, but loses macro F1 by 0.023 and worsens paired safety by 0.016. The added mechanism coverage does not convert into robust action selection.
+
+## Reviewer Claim
+
+The ablations should show that mechanism clustering and tail objectives matter.
+
+## Evidence-Based Response
+
+They do not. Removing mechanism clustering or removing the tail objective reaches 0.675 +/- 0.069 robust success, above the full ablated failure-stratified variant at 0.651 +/- 0.103. This undermines the proposed mechanism.
+
+## Terminal Response
+
+We accept the rejection. The correct action is archive, not rhetorical strengthening.

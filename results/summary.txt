@@ -1,16 +1,21 @@
-Submission-hardening experiment for paper 74 data_engine_failure_stratification
-Seven seeds, 600 episodes per seed, strong baselines, ablations, stress sweep, and negative cases.
-observed_only_behavior_clone hidden_mode_shift mean_success=0.4048 ci95=0.0107 tail=0.5952
-observed_only_behavior_clone combined_stress mean_success=0.3283 ci95=0.0145 tail=0.6717
-data_augmentation_wam hidden_mode_shift mean_success=0.4921 ci95=0.0089 tail=0.5079
-data_augmentation_wam combined_stress mean_success=0.4074 ci95=0.0122 tail=0.5926
-scalar_uncertainty_planner hidden_mode_shift mean_success=0.5538 ci95=0.0122 tail=0.4462
-scalar_uncertainty_planner combined_stress mean_success=0.4845 ci95=0.0182 tail=0.5155
-ensemble_disagreement_planner hidden_mode_shift mean_success=0.5945 ci95=0.0152 tail=0.4055
-ensemble_disagreement_planner combined_stress mean_success=0.5340 ci95=0.0108 tail=0.4660
-conformal_risk_filter hidden_mode_shift mean_success=0.6112 ci95=0.0148 tail=0.3888
-conformal_risk_filter combined_stress mean_success=0.5690 ci95=0.0138 tail=0.4310
-proposed_branch_mechanism hidden_mode_shift mean_success=0.6819 ci95=0.0164 tail=0.3181
-proposed_branch_mechanism combined_stress mean_success=0.6479 ci95=0.0194 tail=0.3521
-oracle_branch_upper_bound hidden_mode_shift mean_success=0.7545 ci95=0.0155 tail=0.2455
-oracle_branch_upper_bound combined_stress mean_success=0.7350 ci95=0.0176 tail=0.2650
+Paper 74 data_engine_failure_stratification real MuJoCo rebuild
+Terminal recommendation: KILL_ARCHIVE
+Reason: failure_stratified_engine does not clear strongest non-oracle baseline failure_prediction_active_learning decisively on combined_tail_stress (stratified=0.643, best_baseline=0.675, paired diff=-0.032+/-0.047, rare_recall=0.691 vs 0.638, macro_f1=0.357 vs 0.380).
+Rollout pool rows: 15120
+Heldout rollout rows: 3780
+Round metric rows: 1225
+Ablation rows: 210
+Stress rows: 168
+Seeds: [0, 1, 2, 3, 4, 5, 6]
+Rounds: 4
+Budget per round: 32
+Runtime seconds: 4264.02
+
+Combined-tail summary:
+failure_prediction_active_learning success=0.67460 ci95=0.05536 macro_f1=0.37956 rare_recall=0.63768 tail=0.32540 safety=0.19048
+oracle_failure_strata success=0.67460 ci95=0.05536 macro_f1=0.36910 rare_recall=0.65999 tail=0.32540 safety=0.19048
+random_sampling success=0.67460 ci95=0.05536 macro_f1=0.36572 rare_recall=0.66346 tail=0.32540 safety=0.19048
+uncertainty_sampling success=0.67460 ci95=0.05536 macro_f1=0.37160 rare_recall=0.68744 tail=0.32540 safety=0.19048
+state_diversity_coreset success=0.66667 ci95=0.06721 macro_f1=0.37170 rare_recall=0.69646 tail=0.33333 safety=0.20635
+task_label_stratification success=0.65873 ci95=0.07296 macro_f1=0.36029 rare_recall=0.64814 tail=0.34127 safety=0.18254
+failure_stratified_engine success=0.64286 ci95=0.05751 macro_f1=0.35702 rare_recall=0.69106 tail=0.35714 safety=0.20635

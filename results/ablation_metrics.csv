@@ -1,6 +1,7 @@
-ablation,combined_stress_mean_success,ci95_success,interpretation
-full_proposed_branch_mechanism,0.6626,0.0121,all components
-minus_branch_atlas,0.5562,0.0204,removes explicit unrealized futures
-minus_tail_risk_objective,0.5740,0.0194,uses mean predicted value only
-minus_diagnostic_probe,0.5960,0.0096,does not actively test ambiguous physical modes
-minus_failure_memory,0.6090,0.0193,does not reuse repaired beliefs
+method,split,seeds,rounds,mean_robust_success,ci95_robust_success,mean_failure_macro_f1,ci95_failure_macro_f1,mean_rare_failure_recall,ci95_rare_failure_recall,mean_tail_risk,ci95_tail_risk,mean_calibration_error,ci95_calibration_error,mean_safety_violation_rate,ci95_safety_violation_rate,mean_failure_coverage,ci95_failure_coverage
+failure_stratified_full,combined_tail_stress,7,4,0.65080,0.10279,0.35714,0.03948,0.70244,0.03094,0.34920,0.10279,0.19535,0.04460,0.11905,0.08707,0.91071,0.07000
+failure_stratified_no_mechanism_clustering,combined_tail_stress,7,4,0.67461,0.06898,0.37239,0.03974,0.69584,0.05194,0.33333,0.07881,0.12266,0.03504,0.12698,0.09714,0.85714,0.03500
+failure_stratified_no_rare_reweighting,combined_tail_stress,7,4,0.65080,0.10279,0.35745,0.04385,0.71251,0.03020,0.34920,0.10279,0.20175,0.04250,0.11905,0.08707,0.91071,0.07000
+failure_stratified_no_tail_objective,combined_tail_stress,7,4,0.67461,0.06898,0.37114,0.03118,0.66981,0.05566,0.33333,0.07881,0.11597,0.02370,0.12698,0.09714,0.91071,0.07000
+failure_stratified_no_trace_features,combined_tail_stress,7,4,0.65080,0.10279,0.35722,0.04100,0.70171,0.03415,0.34920,0.10279,0.19547,0.04249,0.11905,0.08707,0.91071,0.07000
+failure_stratified_no_uncertainty_term,combined_tail_stress,7,4,0.65080,0.10279,0.37705,0.02881,0.62406,0.05140,0.34920,0.10279,0.11218,0.03118,0.11905,0.08707,0.94643,0.04950
