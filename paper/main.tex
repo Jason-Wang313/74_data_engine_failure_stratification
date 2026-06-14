@@ -4,42 +4,115 @@
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{booktabs}
-\title{Data Engine Failure Stratification: ICLR Main-Conference Gate Archive}
+\usepackage{graphicx}
+\title{Failure-Stratified Robot Data Engines Do Not Improve Tail-Robust Selection}
 \author{Anonymous Authors}
 \begin{document}
 \maketitle
+
 \begin{abstract}
-This document is not an ICLR main-conference submission. It is the v3 main-conference gate for a generated robotics draft about robot data engines. The original research bet was: Select new robot data by uncovered failure mechanisms, not by task labels. After a stricter hostile review, the honest terminal decision is \textbf{KILL/ARCHIVE}. Submission-hardening version: v3.
+We rebuilt a generated robotics idea into a concrete data-engine study: should a robot data engine acquire new rollouts by uncovered physical failure mechanisms rather than by task labels, state diversity, uncertainty, or active failure prediction? The v4 rebuild implements a MuJoCo tabletop manipulation benchmark with a pusher, movable block, fixture, walls, pocket contact, friction/mass shifts, actuator limits, sensor dropout, physics-derived failure labels, iterative acquisition rounds, seven random seeds, uncertainty intervals, paired statistics, ablations, stress sweeps, and negative cases. The result is negative. On the decisive \texttt{combined\_tail\_stress} split, the proposed \texttt{failure\_stratified\_engine} reaches $0.643 \pm 0.058$ robust selector success, while the strongest non-oracle baseline, \texttt{failure\_prediction\_active\_learning}, reaches $0.675 \pm 0.055$. The paired success difference is $-0.032 \pm 0.047$. Failure stratification improves rare failure recall, but loses macro failure F1 and does not improve downstream robust selection. We therefore mark the paper \textbf{KILL/ARCHIVE} for ICLR main.
 \end{abstract}
 
-\section{Gate Decision}
-The v2 paper was workshop-only. Under the active ICLR-main standard, that is insufficient. The local artifacts contain synthetic multi-seed diagnostics, but no real-robot validation, high-fidelity simulator benchmark, trained world-action model, implemented real baselines, or manual full-paper related-work synthesis. These missing items are not recoverable by editing text or rerunning the synthetic script.
+\section{Decision}
+This document is the v4 ICLR-main gate for Paper 74, \emph{Data Engine Failure Stratification}. The previous version was killed because it only contained a synthetic template. The current rebuild adds a real local MuJoCo benchmark and implemented acquisition baselines. The rejection reason has changed: evidence now exists, but it does not support the central submission claim.
 
-\section{Fatal ICLR-Main Blockers}
+\section{Hypothesis}
+The tested hypothesis is that selecting new robot data by uncovered failure mechanisms improves tail-robust action selection more than task-label balancing, state-diversity coresets, uncertainty sampling, and active failure prediction. The proposed method only passes the submission gate if mechanism stratification improves the downstream robust selector on the hardest combined-tail split while preserving failure macro F1, rare failure recall, and safety.
+
+\section{Benchmark}
+The benchmark uses MuJoCo dynamics for a planar pusher, a sliding block, top/bottom walls, a target pocket, and a fixed obstacle. Rollouts vary friction, mass, actuator authority, fixture placement, sensor dropout, and contact noise. Each rollout records task success, safety, progress, contact traces, acquisition features, and eight physics-derived failure labels: slip, jam, fixture collision, wall collision, actuator saturation, missed contact, sensor dropout, and timeout.
+
+Five evaluation splits are used: nominal task balance, rare slip failures, jammed fixture failures, actuator-limit failures, and combined tail stress. The main evaluation contains 15,120 rollout-pool rows, 3,780 held-out rollout rows, 1,225 per-round metric rows, and 245 seed-level metric rows. The ablation study contains 210 acquisition-round rows, and the stress sweep contains 168 raw rows. All intervals are 95 percent confidence intervals over seed-level means.
+
+\section{Methods}
+The implemented acquisition methods are:
 \begin{itemize}
-\item Evidence is synthetic and generated from a shared batch template.
-\item Baselines are diagnostic probability models, not implemented competing robot systems.
-\item Ablations do not correspond to a trained model checkpoint.
-\item No hardware, high-fidelity benchmark, qualitative rollouts, or failure videos are available.
-\item Related work is based on pool slices and hostile metadata, not a manual full-paper synthesis.
-\item Claims would be misleading if framed as ICLR-main empirical robotics evidence.
+\item \texttt{random\_sampling}: uniformly acquires from the unlabeled rollout pool.
+\item \texttt{task\_label\_stratification}: balances acquisition across task/split labels.
+\item \texttt{state\_diversity\_coreset}: selects diverse pre-rollout state and environment features.
+\item \texttt{uncertainty\_sampling}: selects examples with high learned failure uncertainty.
+\item \texttt{failure\_prediction\_active\_learning}: selects examples predicted likely to fail.
+\item \texttt{failure\_stratified\_engine}: proposed method; balances acquisition across inferred and rare failure strata.
+\item \texttt{oracle\_failure\_strata}: upper bound with access to true failure mechanism labels for selection.
 \end{itemize}
 
-\section{Hostile Prior-Work Pressure}
-The closest local hostile records include:
-\begin{itemize}
-\item Big Data and Telemetry Data Methodology for Usage Failure Mode Detection (2024)
-\item Scaling Cross-Environment Failure Reasoning Data for Vision-Language Robotic Manipulation (2025)
-\item A new data envelopment analysis-based model for failure mode and effect analysis with heterogeneous information (2021)
-\item Correction to: 2016 ACC/AHA/HFSA Focused Update on New Pharmacological Therapy for Heart Failure: An Update of the 2013 ACCF/AHA Guideline for the Management of Heart Failure: A Report of the American College of Cardiology Foundation/American Heart Association Task Force on Clinical Practice Guidelines and the Heart Failure Society of America (2016)
-\item Method for correlation of failure data from durability tests and field of automotive engine parts with spontaneous failure mode (2026)
-\end{itemize}
-These works make generic world models, uncertainty, model-based planning, and robot policy robustness crowded. Without real empirical evidence, the remaining novelty boundary is too weak for ICLR main.
+\section{Main Results}
+Table~\ref{tab:main} shows the decisive combined-tail result. The proposed method has high rare failure recall, but the robust selector success is lower than active failure prediction, random sampling, uncertainty sampling, and the oracle-strata variant.
 
-\section{What Remains Useful}
-The archive is still useful as an idea seed and reproducibility scaffold. The synthetic code, stress-test CSVs, reviewer attacks, and novelty-boundary docs can inform a future project. The correct next step is not more paper polishing; it is new evidence: implemented models, real baselines, manual related work, and robot or high-fidelity simulator validation.
+\begin{table}[h]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lccccc}
+\toprule
+Method & Success & Macro F1 & Rare recall & Tail risk & Safety \\
+\midrule
+\texttt{failure\_prediction\_active\_learning} & $0.675 \pm 0.055$ & 0.380 & 0.638 & 0.325 & 0.190 \\
+\texttt{random\_sampling} & $0.675 \pm 0.055$ & 0.366 & 0.663 & 0.325 & 0.190 \\
+\texttt{uncertainty\_sampling} & $0.675 \pm 0.055$ & 0.372 & 0.687 & 0.325 & 0.190 \\
+\texttt{oracle\_failure\_strata} & $0.675 \pm 0.055$ & 0.369 & 0.660 & 0.325 & 0.190 \\
+\texttt{state\_diversity\_coreset} & $0.667 \pm 0.067$ & 0.372 & 0.696 & 0.333 & 0.206 \\
+\texttt{task\_label\_stratification} & $0.659 \pm 0.073$ & 0.360 & 0.648 & 0.341 & 0.183 \\
+\texttt{failure\_stratified\_engine} & $0.643 \pm 0.058$ & 0.357 & 0.691 & 0.357 & 0.206 \\
+\bottomrule
+\end{tabular}
+\caption{Combined-tail results. Success is robust selector success after acquisition. Safety is the selected-policy safety violation rate.}
+\label{tab:main}
+\end{table}
 
-\section{Terminal Action}
-Decision: \textbf{KILL/ARCHIVE for ICLR main}. Do not submit this paper to ICLR main in the current form. Revival requires a substantially new empirical project.
+The strongest non-oracle baseline is \texttt{failure\_prediction\_active\_learning}. The paired proposed-minus-baseline success difference is $-0.032 \pm 0.047$. The proposed method improves paired rare recall by 0.053, but loses paired macro F1 by 0.023 and worsens paired safety by 0.016. This fails the submission gate because the mechanism label gain does not translate into downstream selection.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\linewidth]{../figures/failure_engine_final_success.png}
+\caption{Combined-tail robust selector success. The proposed failure-stratified engine does not beat the strongest non-oracle baselines.}
+\end{figure}
+
+\section{Ablations}
+Table~\ref{tab:ablation} shows that the proposed mechanism is not supported. Removing mechanism clustering or removing the tail objective reaches $0.675 \pm 0.069$ success, above the full failure-stratified ablation result. The no-uncertainty ablation improves macro F1 but does not improve robust success.
+
+\begin{table}[h]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccc}
+\toprule
+Ablation & Success & Macro F1 & Rare recall \\
+\midrule
+\texttt{no\_mechanism\_clustering} & $0.675 \pm 0.069$ & 0.372 & 0.696 \\
+\texttt{no\_tail\_objective} & $0.675 \pm 0.069$ & 0.371 & 0.670 \\
+\texttt{full} & $0.651 \pm 0.103$ & 0.357 & 0.702 \\
+\texttt{no\_rare\_reweighting} & $0.651 \pm 0.103$ & 0.357 & 0.713 \\
+\texttt{no\_trace\_features} & $0.651 \pm 0.103$ & 0.357 & 0.702 \\
+\texttt{no\_uncertainty\_term} & $0.651 \pm 0.103$ & 0.377 & 0.624 \\
+\bottomrule
+\end{tabular}
+\caption{Combined-tail ablations. The mechanism-specific pieces do not produce a robust-success advantage.}
+\label{tab:ablation}
+\end{table}
+
+\section{Stress Sweep and Negative Cases}
+The stress sweep reinforces the same conclusion. At mild stress, all methods solve the task; at high stress, robust success collapses for all methods. At stress level 1.00, \texttt{failure\_stratified\_engine} and \texttt{failure\_prediction\_active\_learning} both reach $0.014 \pm 0.028$ robust success. The proposed method has higher rare recall at that stress level, but the selected policies still fail almost always.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.82\linewidth]{../figures/failure_engine_stress_sweep.png}
+\caption{Stress sweep success. Failure stratification does not maintain downstream success under severe combined-tail stress.}
+\end{figure}
+
+Negative cases concentrate around fixture-induced jams and missed-contact rollouts. The failure-stratified selector often identifies rare mechanisms, but the learned robust selector still chooses policies that collide with the fixture or miss contact under dropout. This is the core failure mode: mechanism coverage is not enough when the action selector cannot convert that coverage into a safer policy choice.
+
+\section{Related Work Pressure}
+The hostile prior-work set is crowded around failure detection, failure-reasoning data, runtime failure prediction, uncertainty-driven acquisition, and failure-mode analysis \citep{prior1,prior2,prior3,prior7}. In that context, failure-stratified data acquisition needs a clear downstream win. The present evidence does not provide one.
+
+\section{Limitations}
+This rebuild is not a real robot paper. It lacks hardware experiments, videos, external benchmark validation, and large learned robot-policy checkpoints. The local MuJoCo benchmark is useful for falsification, but not a polished public benchmark contribution. These limitations would matter even if the method won; because it loses the main downstream metric, they reinforce the archive decision.
+
+\section{Conclusion}
+Paper 74 should not be submitted to ICLR main. The v4 rebuild provides useful evidence, but the evidence is negative: failure-stratified acquisition improves some rare-label metrics without improving tail-robust robot data selection. The correct terminal state is \textbf{KILL/ARCHIVE}.
+
+\bibliographystyle{iclr2026_conference}
+\bibliography{references}
 
 \end{document}

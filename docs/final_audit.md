@@ -1,12 +1,35 @@
 # Final Audit
 
-1. Chosen thesis: Data Engine Failure Stratification explores `Select new robot data by uncovered failure mechanisms, not by task labels.` for robot data engines.
-2. ICLR-main decision: KILL_ARCHIVE.
-3. Submission-hardening version: v3.
-4. Reason: synthetic-only, template-generated evidence cannot support ICLR main-conference robotics claims.
-5. Closest hostile prior work: see `docs/hostile_prior_work.md`, `docs/hostile_prior_work_100_cards.csv`, and `docs/hostile_reviewer_response.md`.
-6. Reproducibility: synthetic code runs, but no real robot or high-fidelity benchmark is reproduced.
-7. Claim-validity status: main-conference claims killed; archive memo retained.
-8. Exact Downloads PDF path: `C:/Users/wangz/Downloads/74.pdf`
-9. GitHub URL: https://github.com/Jason-Wang313/74_data_engine_failure_stratification
-10. Confirmation: no visible Desktop copy was requested or made.
+Paper: 74 data_engine_failure_stratification
+
+Version: v4
+
+Terminal decision: KILL_ARCHIVE
+
+## Evidence Completed
+
+- MuJoCo tabletop data-engine benchmark with physics-derived failure mechanisms.
+- Seven seeds: 0 through 6.
+- Five splits and four acquisition rounds.
+- 15,120 rollout-pool rows.
+- 3,780 held-out rollout rows.
+- 1,225 round metric rows.
+- 245 seed-level metric rows.
+- 6 ablation summary rows.
+- 168 stress-sweep raw rows.
+- 12 negative cases.
+
+## Gate Result
+
+The proposed method fails the decisive gate.
+
+- `failure_stratified_engine`: 0.643 +/- 0.058 combined-tail robust success.
+- `failure_prediction_active_learning`: 0.675 +/- 0.055 combined-tail robust success.
+- Paired success difference: -0.032 +/- 0.047.
+- Paired rare-recall difference: +0.053.
+- Paired macro-F1 difference: -0.023.
+- Paired safety reduction: -0.016, meaning worse safety.
+
+## Audit Conclusion
+
+The repo is now a real negative-result artifact. It should not be submitted to ICLR main.

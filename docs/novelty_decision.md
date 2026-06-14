@@ -1,7 +1,13 @@
 # Novelty Decision
 
-Chosen thesis: Data Engine Failure Stratification turns the seed bet into a mechanism: Select new robot data by uncovered failure mechanisms, not by task labels.
+Decision: KILL_ARCHIVE
 
-New central mechanism: Data engine failure stratification keeps action-critical alternatives explicit until a physical observation collapses them.
+The v4 evidence does not support a novel ICLR-main contribution. The repository adds a real local benchmark and a useful negative result, but the proposed failure-stratified data engine does not outperform active failure prediction, uncertainty sampling, or random sampling on the decisive robust selector metric.
 
-Decision: proceed as a revise/workshop-strength ICLR-style draft with synthetic but runnable evidence.
+The novelty claim should be phrased only as:
+
+> A reproducible negative result showing that failure-mechanism coverage can improve rare recall without improving tail-robust robot data selection.
+
+It should not be phrased as:
+
+> A superior robot data-engine algorithm for tail robustness.

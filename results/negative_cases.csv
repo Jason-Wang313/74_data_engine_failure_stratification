@@ -1,4 +1,13 @@
-case,expected_behavior,observed_success,lesson
-unmodeled_hardware_damage,planner abstains or requests human inspection,0.18,branch semantics cannot repair missing actuation
-semantic_goal_ambiguity,diagnostic physical probes do not solve language ambiguity,0.31,needs a separate instruction-grounding loop
-adversarial_sensor_dropout,tail-risk objective becomes conservative,0.39,sensor-health modeling is out of scope
+seed,scenario_id,chosen_policy,failure_labels,final_progress,safety_violation,lesson
+0,test_combined_tail_stress_0_684,center_push,slip;missed_contact,1.01792,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_689,center_push,jam;fixture_collision;timeout,0.29579,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_690,center_push,jam;fixture_collision;timeout,0.31128,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_692,center_push,jam;fixture_collision;timeout,0.27384,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_693,center_push,jam;fixture_collision;timeout,0.30246,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_694,center_push,jam;fixture_collision;timeout,0.29093,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_695,center_push,jam;fixture_collision;sensor_dropout;timeout,0.26451,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_696,center_push,jam;fixture_collision;sensor_dropout;timeout,0.27038,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_699,center_push,timeout,0.86018,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+1,test_combined_tail_stress_1_687,angle_compensated,missed_contact;timeout,0.23996,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+1,test_combined_tail_stress_1_688,angle_compensated,slip;timeout,0.72798,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+1,test_combined_tail_stress_1_689,angle_compensated,jam;fixture_collision;timeout,0.30079,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
