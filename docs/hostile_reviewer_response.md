@@ -27,3 +27,7 @@ They do not. Removing mechanism clustering or removing the tail objective reache
 ## Terminal Response
 
 We accept the rejection. The correct action is archive, not rhetorical strengthening.
+
+## 2026-06-15 Continuation Audit
+
+The continuation audit rechecked the exact numbers from the raw CSVs. On `combined_tail_stress`, `failure_stratified_engine` reaches 0.643 robust success while `failure_prediction_active_learning` reaches 0.675, with paired success difference -0.032 +/- 0.047. The proposed method improves paired rare recall by 0.053 but loses macro-F1 by 0.023 and worsens paired safety by 0.016. Ablations remain hostile: removing mechanism clustering or the tail objective reaches 0.675 robust success, above the full failure-stratified variant.
