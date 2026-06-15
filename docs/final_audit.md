@@ -33,3 +33,7 @@ The proposed method fails the decisive gate.
 ## Audit Conclusion
 
 The repo is now a real negative-result artifact. It should not be submitted to ICLR main.
+
+## 2026-06-15 Continuation Audit
+
+Source compilation, CSV integrity, result scale, PDF/BibTeX rebuild, Downloads-only artifact placement, and public GitHub target were rechecked. The decision remains KILL_ARCHIVE.
