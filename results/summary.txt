@@ -1,21 +1,65 @@
-Paper 74 data_engine_failure_stratification real MuJoCo rebuild
+Paper 74 data_engine_failure_stratification expanded v5 MuJoCo rebuild
 Terminal recommendation: KILL_ARCHIVE
-Reason: failure_stratified_engine does not clear strongest non-oracle baseline failure_prediction_active_learning decisively on combined_tail_stress (stratified=0.643, best_baseline=0.675, paired diff=-0.032+/-0.047, rare_recall=0.691 vs 0.638, macro_f1=0.357 vs 0.380).
-Rollout pool rows: 15120
-Heldout rollout rows: 3780
-Round metric rows: 1225
-Ablation rows: 210
-Stress rows: 168
-Seeds: [0, 1, 2, 3, 4, 5, 6]
-Rounds: 4
-Budget per round: 32
-Runtime seconds: 4264.02
+Reason: hard-regime success margin fails (v5=0.467, best=balanced_failure_replay 0.475); hard-regime paired lower bound against balanced_failure_replay is not positive (-0.008+/-0.016); combined/extreme margin fails (v5=0.528, best=balanced_failure_replay 0.539); combined/extreme paired lower bound against balanced_failure_replay is not positive (-0.012+/-0.023); rare-recall gate fails on combined_tail_stress (v5=0.604, best=task_label_stratification 0.630); macro-F1 gate fails on combined_tail_stress (v5=0.337, best=task_label_stratification 0.343); fixed-risk gate fails at budget 0.10 (v5=0.021, best=random_forest_failure_active 0.042); ablation necessity fails because failure_stratified_v5_no_calibration_term, failure_stratified_v5_no_diversity_penalty, failure_stratified_v5_no_mechanism_deficit, failure_stratified_v5_no_rare_reweighting, failure_stratified_v5_no_tail_risk, failure_stratified_v5_no_trace_features, failure_stratified_v5_old_score matches or beats full v5
+Rollout pool rows: 31104
+Heldout rollout rows: 7776
+Round metric rows: 6480
+Aggregate seed rows: 240
+Fixed-risk seed rows: 6600
+Ablation rows: 384
+Stress rows: 336
+Seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+Rounds: 5
+Budget per round: 36
+Runtime seconds: 6021.58
+
+Hard-regime aggregate summary:
+balanced_failure_replay success=0.47500 ci95=0.04615 macro_f1=0.32416 rare_recall=0.49541 tail=0.52500 safety=0.12778
+calibrated_failure_risk success=0.47500 ci95=0.04615 macro_f1=0.31581 rare_recall=0.45608 tail=0.52500 safety=0.12778
+failure_prediction_active_learning success=0.47500 ci95=0.04615 macro_f1=0.31490 rare_recall=0.45643 tail=0.52500 safety=0.12778
+gradient_boosted_failure_active success=0.47500 ci95=0.04615 macro_f1=0.32561 rare_recall=0.50826 tail=0.52500 safety=0.12778
+greedy_oracle_success_upper success=0.47500 ci95=0.04615 macro_f1=0.31935 rare_recall=0.53621 tail=0.52500 safety=0.12778
+hybrid_diversity_risk success=0.47500 ci95=0.04615 macro_f1=0.32355 rare_recall=0.49303 tail=0.52500 safety=0.12778
+oracle_failure_strata success=0.47500 ci95=0.04615 macro_f1=0.31665 rare_recall=0.52642 tail=0.52500 safety=0.12778
+random_forest_failure_active success=0.47500 ci95=0.04615 macro_f1=0.31550 rare_recall=0.49137 tail=0.52500 safety=0.12778
+random_sampling success=0.47500 ci95=0.04615 macro_f1=0.32284 rare_recall=0.49958 tail=0.52500 safety=0.12778
+tail_risk_active_learning success=0.47500 ci95=0.04615 macro_f1=0.32741 rare_recall=0.47898 tail=0.52500 safety=0.12778
+uncertainty_sampling success=0.47500 ci95=0.04615 macro_f1=0.31937 rare_recall=0.49026 tail=0.52500 safety=0.12778
+failure_stratified_engine success=0.46667 ci95=0.04316 macro_f1=0.31874 rare_recall=0.50622 tail=0.53333 safety=0.13333
+failure_stratified_engine_v5 success=0.46667 ci95=0.04316 macro_f1=0.31831 rare_recall=0.48788 tail=0.53333 safety=0.13333
+task_label_stratification success=0.46528 ci95=0.04325 macro_f1=0.31884 rare_recall=0.49270 tail=0.53472 safety=0.11389
+state_diversity_coreset success=0.46250 ci95=0.04216 macro_f1=0.31681 rare_recall=0.51663 tail=0.53750 safety=0.12361
+
+Fixed-risk hard-regime summary at budget 0.10:
+random_forest_failure_active success_at_budget=0.04167 ci95=0.02245 coverage=0.06389 safety=0.01389 tail=0.02222
+tail_risk_active_learning success_at_budget=0.04167 ci95=0.01875 coverage=0.06250 safety=0.01250 tail=0.02083
+hybrid_diversity_risk success_at_budget=0.03195 ci95=0.01617 coverage=0.04722 safety=0.00972 tail=0.01528
+calibrated_failure_risk success_at_budget=0.02778 ci95=0.01697 coverage=0.04722 safety=0.01111 tail=0.01944
+failure_prediction_active_learning success_at_budget=0.02778 ci95=0.01697 coverage=0.04861 safety=0.01250 tail=0.02083
+uncertainty_sampling success_at_budget=0.02778 ci95=0.01484 coverage=0.05000 safety=0.01389 tail=0.02222
+gradient_boosted_failure_active success_at_budget=0.02639 ci95=0.01743 coverage=0.04305 safety=0.00972 tail=0.01667
+balanced_failure_replay success_at_budget=0.02222 ci95=0.01746 coverage=0.04167 safety=0.01250 tail=0.01944
+random_sampling success_at_budget=0.02222 ci95=0.01540 coverage=0.03889 safety=0.00972 tail=0.01667
+failure_stratified_engine_v5 success_at_budget=0.02083 ci95=0.01617 coverage=0.03750 safety=0.01250 tail=0.01667
+task_label_stratification success_at_budget=0.01805 ci95=0.01230 coverage=0.03333 safety=0.00694 tail=0.01528
+failure_stratified_engine success_at_budget=0.01250 ci95=0.01264 coverage=0.02500 safety=0.00694 tail=0.01250
+oracle_failure_strata success_at_budget=0.00278 ci95=0.00544 coverage=0.00417 safety=0.00139 tail=0.00139
+greedy_oracle_success_upper success_at_budget=0.00139 ci95=0.00272 coverage=0.00278 safety=0.00139 tail=0.00139
+state_diversity_coreset success_at_budget=0.00139 ci95=0.00272 coverage=0.00556 safety=0.00278 tail=0.00417
 
 Combined-tail summary:
-failure_prediction_active_learning success=0.67460 ci95=0.05536 macro_f1=0.37956 rare_recall=0.63768 tail=0.32540 safety=0.19048
-oracle_failure_strata success=0.67460 ci95=0.05536 macro_f1=0.36910 rare_recall=0.65999 tail=0.32540 safety=0.19048
-random_sampling success=0.67460 ci95=0.05536 macro_f1=0.36572 rare_recall=0.66346 tail=0.32540 safety=0.19048
-uncertainty_sampling success=0.67460 ci95=0.05536 macro_f1=0.37160 rare_recall=0.68744 tail=0.32540 safety=0.19048
-state_diversity_coreset success=0.66667 ci95=0.06721 macro_f1=0.37170 rare_recall=0.69646 tail=0.33333 safety=0.20635
-task_label_stratification success=0.65873 ci95=0.07296 macro_f1=0.36029 rare_recall=0.64814 tail=0.34127 safety=0.18254
-failure_stratified_engine success=0.64286 ci95=0.05751 macro_f1=0.35702 rare_recall=0.69106 tail=0.35714 safety=0.20635
+failure_stratified_engine success=0.68750 ci95=0.05420 macro_f1=0.33725 rare_recall=0.62822 tail=0.31250 safety=0.20139
+failure_stratified_engine_v5 success=0.68750 ci95=0.05420 macro_f1=0.33711 rare_recall=0.60400 tail=0.31250 safety=0.20139
+task_label_stratification success=0.68056 ci95=0.04934 macro_f1=0.34283 rare_recall=0.63044 tail=0.31944 safety=0.18750
+balanced_failure_replay success=0.67361 ci95=0.04798 macro_f1=0.33870 rare_recall=0.61411 tail=0.32639 safety=0.20139
+calibrated_failure_risk success=0.67361 ci95=0.04798 macro_f1=0.34533 rare_recall=0.59967 tail=0.32639 safety=0.20139
+failure_prediction_active_learning success=0.67361 ci95=0.04798 macro_f1=0.34549 rare_recall=0.60157 tail=0.32639 safety=0.20139
+gradient_boosted_failure_active success=0.67361 ci95=0.04798 macro_f1=0.33799 rare_recall=0.60319 tail=0.32639 safety=0.20139
+greedy_oracle_success_upper success=0.67361 ci95=0.04798 macro_f1=0.33317 rare_recall=0.64736 tail=0.32639 safety=0.20139
+hybrid_diversity_risk success=0.67361 ci95=0.04798 macro_f1=0.33162 rare_recall=0.60530 tail=0.32639 safety=0.20139
+oracle_failure_strata success=0.67361 ci95=0.04798 macro_f1=0.33290 rare_recall=0.63702 tail=0.32639 safety=0.20139
+random_forest_failure_active success=0.67361 ci95=0.04798 macro_f1=0.34659 rare_recall=0.61040 tail=0.32639 safety=0.20139
+random_sampling success=0.67361 ci95=0.04798 macro_f1=0.34172 rare_recall=0.63123 tail=0.32639 safety=0.20139
+state_diversity_coreset success=0.67361 ci95=0.04798 macro_f1=0.33024 rare_recall=0.61798 tail=0.32639 safety=0.19445
+tail_risk_active_learning success=0.67361 ci95=0.04798 macro_f1=0.33492 rare_recall=0.59966 tail=0.32639 safety=0.20139
+uncertainty_sampling success=0.67361 ci95=0.04798 macro_f1=0.34905 rare_recall=0.61803 tail=0.32639 safety=0.20139

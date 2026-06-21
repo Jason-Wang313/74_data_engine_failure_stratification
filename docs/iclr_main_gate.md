@@ -2,28 +2,31 @@
 
 Paper: 74 data_engine_failure_stratification
 
-Hardening version: v4
+Hardening version: v5 expanded
 
 Gate verdict: KILL_ARCHIVE
 
-Evidence digest: 2f03eac6ae613740
+Evidence digest: 535eade69162c7f9
 
 ## Why It Fails
 
-The v4 rebuild produced real local evidence, but the central claim fails:
+The v5 expanded rebuild produced real local evidence, but the central claim fails:
 
-- `failure_stratified_engine` reaches 0.643 +/- 0.058 robust selector success on `combined_tail_stress`.
-- The strongest non-oracle baseline, `failure_prediction_active_learning`, reaches 0.675 +/- 0.055.
-- The paired success difference is -0.032 +/- 0.047 against the proposed method.
-- The proposed method improves rare failure recall over active failure prediction by 0.053, but loses macro failure F1 by 0.023 and worsens safety by 0.016 in paired seed means.
-- Ablations do not support the proposed mechanism: removing mechanism clustering or the tail objective reaches 0.675 +/- 0.069 success, above the full failure-stratified variant.
+- `failure_stratified_engine_v5` reaches 0.467 +/- 0.043 hard-regime robust success.
+- The strongest non-oracle hard-regime baseline, `balanced_failure_replay`, reaches 0.475 +/- 0.046.
+- The hard-regime paired success difference is -0.008 +/- 0.016 against the proposed method.
+- The combined/extreme paired success difference is -0.012 +/- 0.023 against `balanced_failure_replay`.
+- The proposed method loses the fixed-risk budget 0.10 gate: 0.021 +/- 0.016 versus 0.042 +/- 0.022 for `random_forest_failure_active`.
+- The proposed method trails `task_label_stratification` on combined-tail rare recall and macro F1.
+- Ablations do not support the mechanism: removing calibration, diversity, mechanism deficit, rare reweighting, tail risk, trace features, or using the old score matches or beats full v5.
 
 ## Remaining Main-Track Blockers
 
 - No real-robot evaluation.
 - No external public robotics benchmark validation.
 - The proposed data engine does not beat the strongest non-oracle baseline on robust downstream selection.
-- Stress sweeps collapse at high stress for all methods, indicating the local benchmark is diagnostic rather than a polished benchmark contribution.
+- Fixed-risk success is worse than a strong tree-based active failure baseline.
+- The ablation suite does not identify the claimed v5 components as necessary.
 - Prior work on active failure prediction, uncertainty sampling, robot failure reasoning data, and failure-mode stratification leaves little novelty unless the downstream evidence wins.
 
 The only honest main-conference-safe decision is to archive rather than overclaim.
