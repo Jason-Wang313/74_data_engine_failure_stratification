@@ -1,36 +1,41 @@
 # 74 Data Engine Failure Stratification
 
-Submission-hardening version: v4
+Submission-hardening version: v5 expanded
 
 Terminal decision: KILL_ARCHIVE for ICLR main conference.
 
-This repository now contains a real Paper 74 rebuild: a MuJoCo tabletop manipulation data-engine benchmark, implemented acquisition baselines, a proposed failure-stratified data engine, oracle failure-strata upper bound, seven-seed evaluation, uncertainty intervals, paired statistics, ablations, stress sweeps, negative cases, figures, and a rewritten archive manuscript.
+This repository contains the expanded Paper 74 rebuild: a MuJoCo tabletop manipulation data-engine benchmark, 15 acquisition methods, a strengthened `failure_stratified_engine_v5`, strong CPU-light baselines, oracle diagnostics, 8-seed evaluation, 9 splits, uncertainty intervals, paired statistics, hard-regime aggregates, fixed-risk budgets, ablations, stress sweeps, negative cases, generated figures, and a 25-page ICLR-style negative archive manuscript.
 
-The evidence does not support ICLR-main submission. On the decisive `combined_tail_stress` split, `failure_stratified_engine` reaches 0.643 +/- 0.058 robust selector success, while the strongest non-oracle baseline, `failure_prediction_active_learning`, reaches 0.675 +/- 0.055. The paired success difference is -0.032 +/- 0.047. Failure stratification improves rare failure recall against that baseline, but loses macro failure F1 and robust downstream selection.
+The evidence does not support ICLR-main submission. The proposed v5 method does not survive hostile review: hard-regime success is 0.467 versus 0.475 for `balanced_failure_replay`; the hard-regime paired lower bound is not positive (-0.008 +/- 0.016); combined/extreme success is 0.528 versus 0.539 for `balanced_failure_replay`; fixed-risk hard-regime success at budget 0.10 is 0.021 versus 0.042 for `random_forest_failure_active`; combined-tail rare recall and macro F1 trail `task_label_stratification`; and all v5 ablations match or beat full v5 within the frozen tolerance.
 
 ## Main Result
 
-Full run:
+Frozen full run:
 
-- Rollout-pool rows: 15,120.
-- Held-out rollout rows: 3,780.
-- Round metric rows: 1,225.
-- Seed-level summary rows: 245.
-- Ablation round rows: 210.
-- Stress-sweep raw rows: 168.
-- Seeds: 0 through 6.
-- Acquisition rounds: 4.
-- Budget per round: 32 rollouts.
-- Runtime: 4264.02 seconds.
+- Rollout-pool rows: 31,104.
+- Held-out rollout rows: 7,776.
+- Round metric rows: 6,480.
+- Seed-level summary rows: 1,080.
+- Aggregate seed rows: 240.
+- Fixed-risk seed rows: 6,600.
+- Ablation round rows: 384.
+- Stress-sweep raw rows: 336.
+- Negative cases: 12.
+- Seeds: 0 through 7.
+- Acquisition rounds: 5.
+- Budget per round: 36 rollouts.
+- Runtime: 6021.58 seconds.
 
-Combined-tail summary:
+Hard-regime aggregate:
 
-- `failure_prediction_active_learning`: 0.675 +/- 0.055 robust success, macro F1 0.380, rare recall 0.638.
-- `random_sampling`: 0.675 +/- 0.055 robust success, macro F1 0.366, rare recall 0.663.
-- `uncertainty_sampling`: 0.675 +/- 0.055 robust success, macro F1 0.372, rare recall 0.687.
-- `state_diversity_coreset`: 0.667 +/- 0.067 robust success, macro F1 0.372, rare recall 0.696.
-- `task_label_stratification`: 0.659 +/- 0.073 robust success, macro F1 0.360, rare recall 0.648.
-- `failure_stratified_engine`: 0.643 +/- 0.058 robust success, macro F1 0.357, rare recall 0.691.
+- `balanced_failure_replay`: 0.475 +/- 0.046 robust success.
+- `failure_stratified_engine_v5`: 0.467 +/- 0.043 robust success.
+- Paired v5-minus-replay success difference: -0.008 +/- 0.016.
+
+Fixed-risk hard-regime budget 0.10:
+
+- `random_forest_failure_active`: 0.042 +/- 0.022 success at budget.
+- `failure_stratified_engine_v5`: 0.021 +/- 0.016 success at budget.
 
 The paper is retained as a reproducible negative-result archive.
 
@@ -38,13 +43,7 @@ The paper is retained as a reproducible negative-result archive.
 
 ```powershell
 python src\run_experiment.py
-```
-
-Outputs are written under `results/` and `figures/`.
-
-## Rebuild PDF
-
-```powershell
+python scripts\generate_manuscript.py
 cd paper
 pdflatex -interaction=nonstopmode -halt-on-error main.tex
 bibtex main
@@ -52,6 +51,14 @@ pdflatex -interaction=nonstopmode -halt-on-error main.tex
 pdflatex -interaction=nonstopmode -halt-on-error main.tex
 ```
 
+Validate artifacts:
+
+```powershell
+python scripts\validate_submission_artifacts.py
+```
+
 Canonical local PDF: `C:/Users/wangz/Downloads/74.pdf`
+
+PDF SHA256: `535EADE69162C7F949693D9B477570C3AE8ACCC51FC6BD545AD3B38DE568AE57`
 
 No PDF is copied to the visible Desktop.

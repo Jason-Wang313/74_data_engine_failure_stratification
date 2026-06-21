@@ -1,13 +1,13 @@
 seed,scenario_id,chosen_policy,failure_labels,final_progress,safety_violation,lesson
-0,test_combined_tail_stress_0_684,center_push,slip;missed_contact,1.01792,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_689,center_push,jam;fixture_collision;timeout,0.29579,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_690,center_push,jam;fixture_collision;timeout,0.31128,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_692,center_push,jam;fixture_collision;timeout,0.27384,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_693,center_push,jam;fixture_collision;timeout,0.30246,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_694,center_push,jam;fixture_collision;timeout,0.29093,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_695,center_push,jam;fixture_collision;sensor_dropout;timeout,0.26451,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_696,center_push,jam;fixture_collision;sensor_dropout;timeout,0.27038,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-0,test_combined_tail_stress_0_699,center_push,timeout,0.86018,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-1,test_combined_tail_stress_1_687,angle_compensated,missed_contact;timeout,0.23996,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-1,test_combined_tail_stress_1_688,angle_compensated,slip;timeout,0.72798,0.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
-1,test_combined_tail_stress_1_689,angle_compensated,jam;fixture_collision;timeout,0.30079,1.00000,failure-stratified selection improved labels but robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_684,friction_probe,slip;missed_contact;sensor_dropout,1.01792,0.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_686,friction_probe,jam;fixture_collision;sensor_dropout;timeout,0.28165,1.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_689,friction_probe,missed_contact;timeout,0.00000,0.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_690,friction_probe,jam;fixture_collision;timeout,0.31214,1.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_692,friction_probe,jam;fixture_collision;timeout,0.27004,1.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_694,friction_probe,jam;fixture_collision;sensor_dropout;timeout,0.29096,1.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_695,friction_probe,jam;fixture_collision;sensor_dropout;timeout,0.25821,1.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+0,test_combined_tail_stress_0_698,friction_probe,slip;sensor_dropout;timeout,0.71651,0.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+1,test_combined_tail_stress_1_688,friction_probe,jam;fixture_collision;sensor_dropout;timeout,0.27752,1.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+1,test_combined_tail_stress_1_692,friction_probe,jam;sensor_dropout;timeout,0.00000,0.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+1,test_combined_tail_stress_1_696,friction_probe,jam;fixture_collision;timeout,0.12953,1.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy
+1,test_combined_tail_stress_1_699,friction_probe,missed_contact;sensor_dropout;timeout,0.11973,0.00000,v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy

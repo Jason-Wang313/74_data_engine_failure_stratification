@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import mujoco
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, recall_score
 from sklearn.metrics.pairwise import euclidean_distances
@@ -23,14 +24,14 @@ from sklearn.preprocessing import StandardScaler
 
 BASE_SEED = 1211606508
 QUICK_MODE = os.getenv("PAPER74_QUICK", "0") == "1"
-SEED_COUNT = int(os.getenv("PAPER74_SEED_COUNT", "1" if QUICK_MODE else "7"))
+SEED_COUNT = int(os.getenv("PAPER74_SEED_COUNT", "1" if QUICK_MODE else "8"))
 SEEDS = list(range(SEED_COUNT))
 INIT_SCENARIOS = int(os.getenv("PAPER74_INIT_SCENARIOS", "6" if QUICK_MODE else "18"))
 POOL_SCENARIOS = int(os.getenv("PAPER74_POOL_SCENARIOS", "10" if QUICK_MODE else "54"))
 TEST_SCENARIOS = int(os.getenv("PAPER74_TEST_SCENARIOS", "5" if QUICK_MODE else "18"))
 STRESS_SCENARIOS = int(os.getenv("PAPER74_STRESS_SCENARIOS", "4" if QUICK_MODE else "10"))
-ROUNDS = int(os.getenv("PAPER74_ROUNDS", "2" if QUICK_MODE else "4"))
-BUDGET_PER_ROUND = int(os.getenv("PAPER74_BUDGET_PER_ROUND", "10" if QUICK_MODE else "32"))
+ROUNDS = int(os.getenv("PAPER74_ROUNDS", "2" if QUICK_MODE else "5"))
+BUDGET_PER_ROUND = int(os.getenv("PAPER74_BUDGET_PER_ROUND", "10" if QUICK_MODE else "36"))
 STEPS = 54
 DT = 0.025
 
@@ -56,23 +57,36 @@ METHODS = [
     "state_diversity_coreset",
     "uncertainty_sampling",
     "failure_prediction_active_learning",
+    "calibrated_failure_risk",
+    "tail_risk_active_learning",
+    "hybrid_diversity_risk",
+    "balanced_failure_replay",
+    "gradient_boosted_failure_active",
+    "random_forest_failure_active",
     "failure_stratified_engine",
+    "failure_stratified_engine_v5",
     "oracle_failure_strata",
+    "greedy_oracle_success_upper",
 ]
 
 ABLATION_METHODS = [
-    "failure_stratified_full",
-    "failure_stratified_no_mechanism_clustering",
-    "failure_stratified_no_rare_reweighting",
-    "failure_stratified_no_trace_features",
-    "failure_stratified_no_uncertainty_term",
-    "failure_stratified_no_tail_objective",
+    "failure_stratified_v5_full",
+    "failure_stratified_v5_no_mechanism_deficit",
+    "failure_stratified_v5_no_rare_reweighting",
+    "failure_stratified_v5_no_tail_risk",
+    "failure_stratified_v5_no_calibration_term",
+    "failure_stratified_v5_no_diversity_penalty",
+    "failure_stratified_v5_no_trace_features",
+    "failure_stratified_v5_old_score",
 ]
 
 STRESS_METHODS = [
     "uncertainty_sampling",
     "failure_prediction_active_learning",
+    "calibrated_failure_risk",
+    "hybrid_diversity_risk",
     "failure_stratified_engine",
+    "failure_stratified_engine_v5",
     "oracle_failure_strata",
 ]
 
@@ -191,9 +205,26 @@ SPLITS = [
     SplitSpec("jammed_fixture_failures", 2, 0.07, -0.05, 0.10, 0.08, 0.70, 1.25, 0.86, 0.05, 0.010, 0.55),
     SplitSpec("actuator_limit_failures", 3, -0.02, 0.03, 0.16, -0.24, 0.72, 1.70, 0.58, 0.06, 0.012, 0.58),
     SplitSpec("combined_tail_stress", 4, 0.075, -0.065, 0.12, 0.20, 0.94, 1.45, 0.68, 0.14, 0.014, 0.80),
+    SplitSpec("compound_sensor_actuator_shift", 5, -0.04, 0.06, 0.18, -0.18, 0.82, 1.60, 0.52, 0.22, 0.018, 0.76),
+    SplitSpec("fixture_geometry_shift", 6, 0.10, -0.08, 0.06, 0.06, 0.74, 1.35, 0.72, 0.10, 0.014, 0.72),
+    SplitSpec("rare_mechanism_combo", 7, 0.09, -0.09, 0.10, 0.24, 1.04, 1.82, 0.55, 0.20, 0.020, 0.88),
+    SplitSpec("out_of_distribution_tail", 8, -0.08, 0.10, 0.04, -0.28, 1.10, 2.00, 0.48, 0.25, 0.022, 0.92),
 ]
 SPLIT_BY_NAME = {s.name: s for s in SPLITS}
 POLICY_INDEX = {p: i for i, p in enumerate(POLICIES)}
+HARD_SPLITS = [
+    "combined_tail_stress",
+    "compound_sensor_actuator_shift",
+    "fixture_geometry_shift",
+    "rare_mechanism_combo",
+    "out_of_distribution_tail",
+]
+COMBINED_EXTREME_SPLITS = [
+    "combined_tail_stress",
+    "rare_mechanism_combo",
+    "out_of_distribution_tail",
+]
+FIXED_RISK_BUDGETS = [0.05, 0.10, 0.15, 0.20, 0.30]
 
 
 def ci95(values: Sequence[float]) -> float:
@@ -596,6 +627,79 @@ def predict_mechanisms(models: List[BinaryModel], x: np.ndarray) -> np.ndarray:
     return probs
 
 
+def observable_tail_proxy(rows: Sequence[RolloutRecord]) -> np.ndarray:
+    """A pre-rollout tail-risk proxy built only from observable scenario parameters."""
+    x = feature_matrix(rows, use_trace=False)
+    rarity = np.clip(x[:, 11], 0.0, 1.0)
+    friction_shift = np.clip(np.abs(x[:, 6] - 0.58) / 0.67, 0.0, 1.0)
+    mass_shift = np.clip((x[:, 7] - 1.0) / 1.25, 0.0, 1.0)
+    actuator_loss = np.clip((1.0 - x[:, 8]) / 0.55, 0.0, 1.0)
+    dropout = np.clip(x[:, 9] / 0.30, 0.0, 1.0)
+    geometry = np.clip((np.abs(x[:, 4] - 0.18) + np.abs(x[:, 5])) / 0.42, 0.0, 1.0)
+    noise = np.clip(x[:, 10] / 0.025, 0.0, 1.0)
+    return np.clip(
+        0.24 * rarity
+        + 0.16 * friction_shift
+        + 0.15 * mass_shift
+        + 0.18 * actuator_loss
+        + 0.13 * dropout
+        + 0.10 * geometry
+        + 0.04 * noise,
+        0.0,
+        1.0,
+    )
+
+
+def normalized_min_distance(pool: Sequence[RolloutRecord], selected: Sequence[int], remaining: Sequence[int], use_trace: bool = False) -> np.ndarray:
+    if not remaining:
+        return np.zeros(0, dtype=float)
+    x_pool = feature_matrix(pool, use_trace=use_trace)
+    scaler = StandardScaler().fit(x_pool)
+    xs = scaler.transform(x_pool)
+    if selected:
+        dists = euclidean_distances(xs[list(remaining)], xs[list(selected)]).min(axis=1)
+    else:
+        center = np.mean(xs, axis=0, keepdims=True)
+        dists = np.linalg.norm(xs[list(remaining)] - center, axis=1)
+    hi = float(np.max(dists))
+    if hi <= 1e-12:
+        return np.zeros(len(remaining), dtype=float)
+    return dists / hi
+
+
+def tree_failure_probs(selected_rows: Sequence[RolloutRecord], remaining_rows: Sequence[RolloutRecord], kind: str, seed: int) -> np.ndarray:
+    y = 1 - labels_success(selected_rows)
+    if len(np.unique(y)) < 2:
+        return np.ones(len(remaining_rows), dtype=float) * float(np.mean(y))
+    x_train = feature_matrix(selected_rows, use_trace=False)
+    x_test = feature_matrix(remaining_rows, use_trace=False)
+    try:
+        if kind == "hgb":
+            scaler = StandardScaler().fit(x_train)
+            model = HistGradientBoostingClassifier(
+                max_iter=90,
+                learning_rate=0.055,
+                l2_regularization=0.04,
+                min_samples_leaf=8,
+                random_state=BASE_SEED + seed,
+            )
+            model.fit(scaler.transform(x_train), y)
+            return model.predict_proba(scaler.transform(x_test))[:, 1]
+        model = RandomForestClassifier(
+            n_estimators=96,
+            max_depth=7,
+            min_samples_leaf=3,
+            class_weight="balanced_subsample",
+            random_state=BASE_SEED + 17 * seed,
+            n_jobs=1,
+        )
+        model.fit(x_train, y)
+        return model.predict_proba(x_test)[:, 1]
+    except Exception:
+        fallback = fit_binary(x_train, y)
+        return predict_binary(fallback, x_test)
+
+
 def calibration_error(probs: np.ndarray, labels: np.ndarray, bins: int = 8) -> float:
     probs = np.asarray(probs, dtype=float)
     labels = np.asarray(labels, dtype=float)
@@ -696,11 +800,47 @@ def choose_batch(method: str, selected: List[int], pool: List[RolloutRecord], bu
     x_rem_pre = feature_matrix(remaining_rows, use_trace=False)
     fail_probs = predict_binary(failure_model, x_rem_pre)
     uncertainty = 1.0 - np.abs(fail_probs - 0.5) * 2.0
-    if method == "uncertainty_sampling" or ablation == "failure_stratified_no_mechanism_clustering":
+    tail_proxy = observable_tail_proxy(remaining_rows)
+    diversity_pre = normalized_min_distance(pool, selected, remaining, use_trace=False)
+    if method == "uncertainty_sampling":
         order = np.argsort(-uncertainty)
         return [remaining[int(i)] for i in order[:budget]]
     if method == "failure_prediction_active_learning":
         score = fail_probs + 0.20 * uncertainty
+        order = np.argsort(-score)
+        return [remaining[int(i)] for i in order[:budget]]
+    if method == "calibrated_failure_risk":
+        selected_x = feature_matrix(selected_rows, use_trace=False)
+        selected_y = 1 - labels_success(selected_rows)
+        selected_probs = predict_binary(failure_model, selected_x)
+        ece = calibration_error(selected_probs, selected_y)
+        score = fail_probs + 0.30 * uncertainty + 0.25 * ece * tail_proxy
+        order = np.argsort(-score)
+        return [remaining[int(i)] for i in order[:budget]]
+    if method == "tail_risk_active_learning":
+        score = 0.52 * fail_probs + 0.40 * tail_proxy + 0.08 * uncertainty
+        order = np.argsort(-score)
+        return [remaining[int(i)] for i in order[:budget]]
+    if method == "hybrid_diversity_risk":
+        score = 0.40 * fail_probs + 0.22 * uncertainty + 0.22 * tail_proxy + 0.16 * diversity_pre
+        order = np.argsort(-score)
+        return [remaining[int(i)] for i in order[:budget]]
+    if method == "balanced_failure_replay":
+        mech_probs = predict_mechanisms(mechanism_models, x_rem_pre)
+        counts = np.sum(labels_failures(selected_rows), axis=0)
+        deficit = 1.0 / (1.0 + counts)
+        deficit = deficit / max(1e-9, float(np.max(deficit)))
+        score = 0.50 * (mech_probs * deficit[None, :]).max(axis=1) + 0.24 * tail_proxy + 0.16 * uncertainty + 0.10 * diversity_pre
+        order = np.argsort(-score)
+        return [remaining[int(i)] for i in order[:budget]]
+    if method == "gradient_boosted_failure_active":
+        boosted_probs = tree_failure_probs(selected_rows, remaining_rows, "hgb", int(rng.integers(0, 10_000)))
+        score = 0.75 * boosted_probs + 0.15 * uncertainty + 0.10 * tail_proxy
+        order = np.argsort(-score)
+        return [remaining[int(i)] for i in order[:budget]]
+    if method == "random_forest_failure_active":
+        forest_probs = tree_failure_probs(selected_rows, remaining_rows, "rf", int(rng.integers(0, 10_000)))
+        score = 0.72 * forest_probs + 0.16 * uncertainty + 0.12 * diversity_pre
         order = np.argsort(-score)
         return [remaining[int(i)] for i in order[:budget]]
     if method == "oracle_failure_strata":
@@ -715,27 +855,68 @@ def choose_batch(method: str, selected: List[int], pool: List[RolloutRecord], bu
             chosen.append(pick)
             counts += pool[pick].failures
         return chosen
-    if method == "failure_stratified_engine":
-        use_trace = ablation != "failure_stratified_no_trace_features"
+    if method == "greedy_oracle_success_upper":
+        scores = np.array([2.0 * (1 - row.success) + 0.55 * np.sum(row.failures) + 0.45 * row.tail_risk for row in remaining_rows])
+        order = np.argsort(-scores)
+        return [remaining[int(i)] for i in order[:budget]]
+    if method in {"failure_stratified_engine", "failure_stratified_engine_v5"}:
+        use_trace = ablation not in {"failure_stratified_no_trace_features", "failure_stratified_v5_no_trace_features"}
         x_all = feature_matrix(pool, use_trace=use_trace)
         scaler = StandardScaler().fit(x_all)
         xs_all = scaler.transform(x_all)
-        k = min(9, max(3, len(pool) // 45))
+        k = min(14 if method.endswith("_v5") else 9, max(3, len(pool) // (34 if method.endswith("_v5") else 45)))
         km = KMeans(n_clusters=k, random_state=BASE_SEED + len(selected), n_init=6)
         clusters = km.fit_predict(xs_all)
         selected_counts = np.bincount(clusters[selected], minlength=k) if selected else np.zeros(k)
         rem_clusters = clusters[remaining]
         mech_probs = predict_mechanisms(mechanism_models, x_rem_pre)
         rare_score = np.mean(mech_probs[:, [FAILURES.index(name) for name in RARE_FAILURES]], axis=1)
-        tail_bonus = np.array([row.tail_risk for row in remaining_rows], dtype=float)
         cluster_need = 1.0 / (1.0 + selected_counts[rem_clusters])
-        if ablation == "failure_stratified_no_rare_reweighting":
+        if method == "failure_stratified_engine":
+            tail_bonus = np.array([row.tail_risk for row in remaining_rows], dtype=float)
+            if ablation == "failure_stratified_no_rare_reweighting":
+                rare_score[:] = np.mean(mech_probs, axis=1)
+            if ablation == "failure_stratified_no_uncertainty_term":
+                uncertainty[:] = 0.0
+            if ablation == "failure_stratified_no_tail_objective":
+                tail_bonus[:] = 0.0
+            score = 0.45 * cluster_need + 0.32 * rare_score + 0.17 * uncertainty + 0.22 * tail_bonus
+            order = np.argsort(-score)
+            return [remaining[int(i)] for i in order[:budget]]
+        selected_labels = labels_failures(selected_rows)
+        mechanism_counts = np.sum(selected_labels, axis=0)
+        mechanism_deficit = 1.0 / (1.0 + mechanism_counts)
+        mechanism_deficit = mechanism_deficit / max(1e-9, float(np.max(mechanism_deficit)))
+        deficit_score = np.sum(mech_probs * mechanism_deficit[None, :], axis=1) / max(1.0, float(np.sum(mechanism_deficit)))
+        selected_x = feature_matrix(selected_rows, use_trace=False)
+        selected_y = 1 - labels_success(selected_rows)
+        selected_probs = predict_binary(failure_model, selected_x)
+        calibration_pressure = calibration_error(selected_probs, selected_y) * uncertainty
+        diversity_score = normalized_min_distance(pool, selected, remaining, use_trace=use_trace)
+        if ablation == "failure_stratified_v5_no_mechanism_deficit":
+            deficit_score[:] = np.mean(mech_probs, axis=1)
+            cluster_need[:] = 0.0
+        if ablation == "failure_stratified_v5_no_rare_reweighting":
             rare_score[:] = np.mean(mech_probs, axis=1)
-        if ablation == "failure_stratified_no_uncertainty_term":
-            uncertainty[:] = 0.0
-        if ablation == "failure_stratified_no_tail_objective":
-            tail_bonus[:] = 0.0
-        score = 0.45 * cluster_need + 0.32 * rare_score + 0.17 * uncertainty + 0.22 * tail_bonus
+        if ablation == "failure_stratified_v5_no_tail_risk":
+            tail_proxy[:] = 0.0
+        if ablation == "failure_stratified_v5_no_calibration_term":
+            calibration_pressure[:] = 0.0
+        if ablation == "failure_stratified_v5_no_diversity_penalty":
+            diversity_score[:] = 0.0
+        if ablation == "failure_stratified_v5_old_score":
+            score = 0.45 * cluster_need + 0.32 * rare_score + 0.17 * uncertainty + 0.22 * tail_proxy
+        else:
+            score = (
+                0.28 * deficit_score
+                + 0.20 * rare_score
+                + 0.18 * tail_proxy
+                + 0.12 * uncertainty
+                + 0.11 * cluster_need
+                + 0.08 * diversity_score
+                + 0.08 * calibration_pressure
+                + 0.05 * fail_probs
+            )
         order = np.argsort(-score)
         return [remaining[int(i)] for i in order[:budget]]
     return list(rng.choice(remaining, size=budget, replace=False))
@@ -824,7 +1005,7 @@ def build_summary(seed_rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return rows
 
 
-def build_pairwise(seed_rows: List[Dict[str, str]], reference: str = "failure_stratified_engine") -> List[Dict[str, str]]:
+def build_pairwise(seed_rows: List[Dict[str, str]], reference: str = "failure_stratified_engine_v5") -> List[Dict[str, str]]:
     by_key = {(row["method"], row["split"], row["seed"]): row for row in seed_rows}
     rows: List[Dict[str, str]] = []
     methods = sorted({row["method"] for row in seed_rows if row["method"] != reference})
@@ -858,6 +1039,138 @@ def build_pairwise(seed_rows: List[Dict[str, str]], reference: str = "failure_st
                         "seeds": str(len(success_diffs)),
                     }
                 )
+    return rows
+
+
+def build_aggregate_seed_rows(seed_rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    metrics = [
+        "robust_success",
+        "failure_macro_f1",
+        "rare_failure_recall",
+        "tail_risk",
+        "calibration_error",
+        "safety_violation_rate",
+        "failure_coverage",
+    ]
+    aggregate_defs = {
+        "hard_regime": HARD_SPLITS,
+        "combined_extreme": COMBINED_EXTREME_SPLITS,
+    }
+    out: List[Dict[str, str]] = []
+    by_key = group_rows(seed_rows, ["method", "seed"])
+    for (method, seed), group in sorted(by_key.items()):
+        by_split = {row["split"]: row for row in group}
+        for aggregate_name, split_names in aggregate_defs.items():
+            selected = [by_split[name] for name in split_names if name in by_split]
+            if not selected:
+                continue
+            row = {
+                "method": method,
+                "seed": seed,
+                "round": str(ROUNDS),
+                "split": aggregate_name,
+                "selected_examples": selected[0].get("selected_examples", ""),
+            }
+            for metric in metrics:
+                row[metric] = f"{float(np.mean([float(item[metric]) for item in selected])):.5f}"
+            out.append(row)
+    return out
+
+
+def robust_selector_fixed_risk(rows: Sequence[RolloutRecord], failure_model: BinaryModel, budget: float) -> Dict[str, float]:
+    by_scenario: Dict[str, List[RolloutRecord]] = {}
+    for row in rows:
+        by_scenario.setdefault(row.scenario_id, []).append(row)
+    successes: List[float] = []
+    safeties: List[float] = []
+    tail_risks: List[float] = []
+    abstains: List[float] = []
+    selected_risks: List[float] = []
+    for group in by_scenario.values():
+        probs = predict_binary(failure_model, feature_matrix(group, use_trace=False))
+        eligible = np.where(probs <= budget)[0]
+        if len(eligible) == 0:
+            successes.append(0.0)
+            safeties.append(0.0)
+            tail_risks.append(0.0)
+            abstains.append(1.0)
+            selected_risks.append(float(np.min(probs)))
+            continue
+        local_idx = int(eligible[int(np.argmin(probs[eligible]))])
+        chosen = group[local_idx]
+        successes.append(float(chosen.success))
+        safeties.append(float(chosen.safety_violation))
+        tail_risks.append(float(chosen.tail_risk))
+        abstains.append(0.0)
+        selected_risks.append(float(probs[local_idx]))
+    return {
+        "success_at_budget": float(np.mean(successes)),
+        "safety_at_budget": float(np.mean(safeties)),
+        "tail_at_budget": float(np.mean(tail_risks)),
+        "coverage_at_budget": float(1.0 - np.mean(abstains)),
+        "mean_selected_risk": float(np.mean(selected_risks)),
+    }
+
+
+def build_fixed_risk_seed_rows(
+    selected_by_method: Dict[Tuple[int, str], List[RolloutRecord]],
+    test_records: Sequence[RolloutRecord],
+) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    test_by_seed_split: Dict[Tuple[int, str], List[RolloutRecord]] = {}
+    for row in test_records:
+        test_by_seed_split.setdefault((row.seed, row.split), []).append(row)
+    for (seed, method), selected in sorted(selected_by_method.items()):
+        failure_model, _ = fit_failure_models(selected)
+        for split in sorted({row.split for row in test_records}):
+            eval_rows = test_by_seed_split.get((seed, split), [])
+            if not eval_rows:
+                continue
+            for budget in FIXED_RISK_BUDGETS:
+                metrics = robust_selector_fixed_risk(eval_rows, failure_model, budget)
+                rows.append(
+                    {
+                        "method": method,
+                        "seed": str(seed),
+                        "split": split,
+                        "risk_budget": f"{budget:.2f}",
+                        **{k: f"{v:.5f}" for k, v in metrics.items()},
+                    }
+                )
+    return rows
+
+
+def build_fixed_risk_aggregate_seed_rows(fixed_seed_rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    metrics = ["success_at_budget", "safety_at_budget", "tail_at_budget", "coverage_at_budget", "mean_selected_risk"]
+    aggregate_defs = {
+        "hard_regime": HARD_SPLITS,
+        "combined_extreme": COMBINED_EXTREME_SPLITS,
+    }
+    out: List[Dict[str, str]] = []
+    by_key = group_rows(fixed_seed_rows, ["method", "seed", "risk_budget"])
+    for (method, seed, budget), group in sorted(by_key.items()):
+        by_split = {row["split"]: row for row in group}
+        for aggregate_name, split_names in aggregate_defs.items():
+            selected = [by_split[name] for name in split_names if name in by_split]
+            if not selected:
+                continue
+            row = {"method": method, "seed": seed, "split": aggregate_name, "risk_budget": budget}
+            for metric in metrics:
+                row[metric] = f"{float(np.mean([float(item[metric]) for item in selected])):.5f}"
+            out.append(row)
+    return out
+
+
+def build_fixed_risk_summary(fixed_seed_rows: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    metrics = ["success_at_budget", "safety_at_budget", "tail_at_budget", "coverage_at_budget", "mean_selected_risk"]
+    rows: List[Dict[str, str]] = []
+    for (method, split, budget), group in sorted(group_rows(fixed_seed_rows, ["method", "split", "risk_budget"]).items()):
+        item = {"method": method, "split": split, "risk_budget": budget, "seeds": str(len(group))}
+        for metric in metrics:
+            vals = [float(row[metric]) for row in group]
+            item[f"mean_{metric}"] = f"{float(np.mean(vals)):.5f}"
+            item[f"ci95_{metric}"] = f"{ci95(vals):.5f}"
+        rows.append(item)
     return rows
 
 
@@ -947,41 +1260,134 @@ def plot_stress(stress_summary: List[Dict[str, str]], path: Path) -> None:
     plt.close()
 
 
-def decide(summary: List[Dict[str, str]], pairwise: List[Dict[str, str]]) -> Tuple[str, str]:
-    combined = [row for row in summary if row["split"] == "combined_tail_stress"]
-    proposed = [row for row in combined if row["method"] == "failure_stratified_engine"][0]
-    non_oracle = [row for row in combined if row["method"] not in {"failure_stratified_engine", "oracle_failure_strata"}]
-    best = max(non_oracle, key=lambda row: float(row["mean_robust_success"]))
-    pair = [row for row in pairwise if row["split"] == "combined_tail_stress" and row["comparison"] == best["method"]][0]
-    prop_success = float(proposed["mean_robust_success"])
-    best_success = float(best["mean_robust_success"])
-    prop_rare = float(proposed["mean_rare_failure_recall"])
-    best_rare = float(best["mean_rare_failure_recall"])
-    prop_macro = float(proposed["mean_failure_macro_f1"])
-    best_macro = float(best["mean_failure_macro_f1"])
-    prop_safety = float(proposed["mean_safety_violation_rate"])
-    best_safety = float(best["mean_safety_violation_rate"])
-    paired = float(pair["paired_success_diff"])
-    paired_ci = float(pair["ci95_success_diff"])
-    if prop_success - best_success >= 0.045 and paired - paired_ci > 0.0 and prop_rare >= best_rare and prop_macro >= best_macro and prop_safety <= best_safety + 0.02:
+def method_is_non_oracle_baseline(method: str) -> bool:
+    return method not in {
+        "failure_stratified_engine",
+        "failure_stratified_engine_v5",
+        "oracle_failure_strata",
+        "greedy_oracle_success_upper",
+    }
+
+
+def row_lookup(rows: List[Dict[str, str]], split: str, method: str) -> Dict[str, str]:
+    matches = [row for row in rows if row["split"] == split and row["method"] == method]
+    if not matches:
+        raise KeyError(f"missing row for split={split} method={method}")
+    return matches[0]
+
+
+def pair_lookup(rows: List[Dict[str, str]], split: str, comparison: str) -> Dict[str, str]:
+    matches = [row for row in rows if row["split"] == split and row["comparison"] == comparison]
+    if not matches:
+        raise KeyError(f"missing pairwise row for split={split} comparison={comparison}")
+    return matches[0]
+
+
+def best_non_oracle(rows: List[Dict[str, str]], split: str, metric: str) -> Dict[str, str]:
+    candidates = [row for row in rows if row["split"] == split and method_is_non_oracle_baseline(row["method"])]
+    if not candidates:
+        raise KeyError(f"no non-oracle candidates for {split}")
+    return max(candidates, key=lambda row: float(row[metric]))
+
+
+def decide(
+    summary: List[Dict[str, str]],
+    aggregate_summary: List[Dict[str, str]],
+    pairwise: List[Dict[str, str]],
+    aggregate_pairwise: List[Dict[str, str]],
+    fixed_summary: List[Dict[str, str]],
+    ablation_summary: List[Dict[str, str]],
+    stress_summary: List[Dict[str, str]],
+) -> Tuple[str, str]:
+    failures: List[str] = []
+    hard_prop = row_lookup(aggregate_summary, "hard_regime", "failure_stratified_engine_v5")
+    hard_best = best_non_oracle(aggregate_summary, "hard_regime", "mean_robust_success")
+    hard_pair = pair_lookup(aggregate_pairwise, "hard_regime", hard_best["method"])
+    hard_margin = float(hard_prop["mean_robust_success"]) - float(hard_best["mean_robust_success"])
+    hard_lower = float(hard_pair["paired_success_diff"]) - float(hard_pair["ci95_success_diff"])
+    if hard_margin < 0.04:
+        failures.append(
+            f"hard-regime success margin fails (v5={float(hard_prop['mean_robust_success']):.3f}, "
+            f"best={hard_best['method']} {float(hard_best['mean_robust_success']):.3f})"
+        )
+    if hard_lower <= 0.0:
+        failures.append(
+            f"hard-regime paired lower bound against {hard_best['method']} is not positive "
+            f"({float(hard_pair['paired_success_diff']):.3f}+/-{float(hard_pair['ci95_success_diff']):.3f})"
+        )
+
+    ce_prop = row_lookup(aggregate_summary, "combined_extreme", "failure_stratified_engine_v5")
+    ce_best = best_non_oracle(aggregate_summary, "combined_extreme", "mean_robust_success")
+    ce_pair = pair_lookup(aggregate_pairwise, "combined_extreme", ce_best["method"])
+    ce_margin = float(ce_prop["mean_robust_success"]) - float(ce_best["mean_robust_success"])
+    ce_lower = float(ce_pair["paired_success_diff"]) - float(ce_pair["ci95_success_diff"])
+    if ce_margin < 0.04:
+        failures.append(
+            f"combined/extreme margin fails (v5={float(ce_prop['mean_robust_success']):.3f}, "
+            f"best={ce_best['method']} {float(ce_best['mean_robust_success']):.3f})"
+        )
+    if ce_lower <= 0.0:
+        failures.append(
+            f"combined/extreme paired lower bound against {ce_best['method']} is not positive "
+            f"({float(ce_pair['paired_success_diff']):.3f}+/-{float(ce_pair['ci95_success_diff']):.3f})"
+        )
+
+    combined_prop = row_lookup(summary, "combined_tail_stress", "failure_stratified_engine_v5")
+    combined_best = best_non_oracle(summary, "combined_tail_stress", "mean_robust_success")
+    if float(combined_prop["mean_rare_failure_recall"]) + 1e-9 < float(combined_best["mean_rare_failure_recall"]):
+        failures.append(
+            f"rare-recall gate fails on combined_tail_stress (v5={float(combined_prop['mean_rare_failure_recall']):.3f}, "
+            f"best={combined_best['method']} {float(combined_best['mean_rare_failure_recall']):.3f})"
+        )
+    if float(combined_prop["mean_failure_macro_f1"]) + 1e-9 < float(combined_best["mean_failure_macro_f1"]):
+        failures.append(
+            f"macro-F1 gate fails on combined_tail_stress (v5={float(combined_prop['mean_failure_macro_f1']):.3f}, "
+            f"best={combined_best['method']} {float(combined_best['mean_failure_macro_f1']):.3f})"
+        )
+
+    fixed_rows = [row for row in fixed_summary if row["split"] == "hard_regime" and row["risk_budget"] == "0.10"]
+    fixed_prop = [row for row in fixed_rows if row["method"] == "failure_stratified_engine_v5"][0]
+    fixed_best = max([row for row in fixed_rows if method_is_non_oracle_baseline(row["method"])], key=lambda row: float(row["mean_success_at_budget"]))
+    if float(fixed_prop["mean_success_at_budget"]) + 1e-9 < float(fixed_best["mean_success_at_budget"]):
+        failures.append(
+            f"fixed-risk gate fails at budget 0.10 (v5={float(fixed_prop['mean_success_at_budget']):.3f}, "
+            f"best={fixed_best['method']} {float(fixed_best['mean_success_at_budget']):.3f})"
+        )
+
+    ablations = [row for row in ablation_summary if row["split"] == "combined_tail_stress"]
+    full_ablation = [row for row in ablations if row["method"] == "failure_stratified_v5_full"][0]
+    matching = [
+        row["method"]
+        for row in ablations
+        if row["method"] != "failure_stratified_v5_full"
+        and float(row["mean_robust_success"]) >= float(full_ablation["mean_robust_success"]) - 0.005
+    ]
+    if matching:
+        failures.append("ablation necessity fails because " + ", ".join(matching) + " matches or beats full v5")
+
+    max_stress_rows = [row for row in stress_summary if row["stress_level"] == "1.00"]
+    stress_prop = [row for row in max_stress_rows if row["method"] == "failure_stratified_engine_v5"][0]
+    stress_best = max([row for row in max_stress_rows if method_is_non_oracle_baseline(row["method"])], key=lambda row: float(row["mean_robust_success"]))
+    if float(stress_prop["mean_robust_success"]) + 0.03 < float(stress_best["mean_robust_success"]):
+        failures.append(
+            f"maximum-stress gate fails (v5={float(stress_prop['mean_robust_success']):.3f}, "
+            f"best={stress_best['method']} {float(stress_best['mean_robust_success']):.3f})"
+        )
+
+    if not failures:
         return (
             "STRONG_REVISE",
-            f"failure_stratified_engine clears strongest non-oracle baseline {best['method']} on combined_tail_stress by "
-            f"{prop_success - best_success:.3f} robust success with paired diff {paired:.3f}+/-{paired_ci:.3f}, "
-            "but lacks real robot/public benchmark validation.",
+            f"failure_stratified_engine_v5 clears hard and combined/extreme gates against strongest non-oracle baselines "
+            f"({hard_best['method']} and {ce_best['method']}), passes fixed-risk budget 0.10, ablation necessity, and maximum-stress checks; "
+            "it still lacks real-robot and public-benchmark validation.",
         )
-    return (
-        "KILL_ARCHIVE",
-        f"failure_stratified_engine does not clear strongest non-oracle baseline {best['method']} decisively on combined_tail_stress "
-        f"(stratified={prop_success:.3f}, best_baseline={best_success:.3f}, paired diff={paired:.3f}+/-{paired_ci:.3f}, "
-        f"rare_recall={prop_rare:.3f} vs {best_rare:.3f}, macro_f1={prop_macro:.3f} vs {best_macro:.3f}).",
-    )
+    return ("KILL_ARCHIVE", "; ".join(failures))
 
 
 def negative_cases(test_records: List[RolloutRecord], selected_by_method: Dict[Tuple[int, str], List[RolloutRecord]]) -> List[Dict[str, str]]:
     rows: List[Dict[str, str]] = []
     for seed in SEEDS:
-        selected = selected_by_method.get((seed, "failure_stratified_engine"), [])
+        selected = selected_by_method.get((seed, "failure_stratified_engine_v5"), [])
         if not selected:
             continue
         failure_model, _ = fit_failure_models(selected)
@@ -1001,7 +1407,7 @@ def negative_cases(test_records: List[RolloutRecord], selected_by_method: Dict[T
                         "failure_labels": ";".join(name for name, active in zip(FAILURES, chosen.failures) if active),
                         "final_progress": f"{chosen.final_progress:.5f}",
                         "safety_violation": f"{chosen.safety_violation:.5f}",
-                        "lesson": "failure-stratified selection improved labels but robust selector still chose a tail-risk policy",
+                        "lesson": "v5 mechanism-stratified selection improved coverage pressure but the robust selector still chose a tail-risk policy",
                     }
                 )
             if len(rows) >= 12:
@@ -1035,6 +1441,12 @@ def main() -> None:
     seed_rows = build_seed_metrics(round_rows)
     summary = build_summary(seed_rows)
     pairwise = build_pairwise(seed_rows)
+    aggregate_seed_rows = build_aggregate_seed_rows(seed_rows)
+    aggregate_summary = build_summary(aggregate_seed_rows)
+    aggregate_pairwise = build_pairwise(aggregate_seed_rows)
+    fixed_seed_rows = build_fixed_risk_seed_rows(selected_by_method, all_test_rows)
+    fixed_aggregate_seed_rows = build_fixed_risk_aggregate_seed_rows(fixed_seed_rows)
+    fixed_summary = build_fixed_risk_summary(fixed_seed_rows + fixed_aggregate_seed_rows)
     write_csv(RESULTS / "rollout_pool.csv", rollout_csv_rows(all_pool_rows))
     write_csv(RESULTS / "heldout_rollouts.csv", rollout_csv_rows(all_test_rows))
     write_csv(RESULTS / "acquisition_log.csv", acquisition_rows)
@@ -1044,6 +1456,11 @@ def main() -> None:
     write_csv(RESULTS / "failure_engine_metrics.csv", summary)
     write_csv(RESULTS / "pairwise_stats.csv", pairwise)
     write_csv(RESULTS / "failure_engine_pairwise.csv", pairwise)
+    write_csv(RESULTS / "aggregate_seed_metrics.csv", aggregate_seed_rows)
+    write_csv(RESULTS / "aggregate_metrics.csv", aggregate_summary)
+    write_csv(RESULTS / "aggregate_pairwise_stats.csv", aggregate_pairwise)
+    write_csv(RESULTS / "fixed_risk_seed_metrics.csv", fixed_seed_rows + fixed_aggregate_seed_rows)
+    write_csv(RESULTS / "fixed_risk_metrics.csv", fixed_summary)
     write_csv(
         RESULTS / "training_summary.csv",
         [
@@ -1073,7 +1490,7 @@ def main() -> None:
         init_rows, pool_rows, test_by_split = generate_seed_dataset(seed + 100)
         combined_only = {"combined_tail_stress": test_by_split["combined_tail_stress"]}
         for ablation in ABLATION_METHODS:
-            rr, _, _ = run_acquisition_method("failure_stratified_engine", init_rows, pool_rows, combined_only, seed, ablation=ablation)
+            rr, _, _ = run_acquisition_method("failure_stratified_engine_v5", init_rows, pool_rows, combined_only, seed, ablation=ablation)
             ablation_round_rows.extend(rr)
     ablation_seed = build_seed_metrics(ablation_round_rows)
     ablation_summary = build_summary(ablation_seed)
@@ -1117,22 +1534,40 @@ def main() -> None:
     plot_bar(ablation_summary, "combined_tail_stress", "robust_success", FIGURES / "failure_engine_ablation_success.png", "Paper 74 failure-stratification ablations")
     plot_stress(stress_summary_rows, FIGURES / "failure_engine_stress_sweep.png")
 
-    decision, reason = decide(summary, pairwise)
+    decision, reason = decide(summary, aggregate_summary, pairwise, aggregate_pairwise, fixed_summary, ablation_summary, stress_summary_rows)
     combined_rows = [row for row in summary if row["split"] == "combined_tail_stress"]
+    hard_rows = [row for row in aggregate_summary if row["split"] == "hard_regime"]
+    fixed_hard_rows = [row for row in fixed_summary if row["split"] == "hard_regime" and row["risk_budget"] == "0.10"]
     elapsed = time.time() - start
     with (RESULTS / "summary.txt").open("w", encoding="utf-8") as f:
-        f.write("Paper 74 data_engine_failure_stratification real MuJoCo rebuild\n")
+        f.write("Paper 74 data_engine_failure_stratification expanded v5 MuJoCo rebuild\n")
         f.write(f"Terminal recommendation: {decision}\n")
         f.write(f"Reason: {reason}\n")
         f.write(f"Rollout pool rows: {len(all_pool_rows)}\n")
         f.write(f"Heldout rollout rows: {len(all_test_rows)}\n")
         f.write(f"Round metric rows: {len(round_rows)}\n")
+        f.write(f"Aggregate seed rows: {len(aggregate_seed_rows)}\n")
+        f.write(f"Fixed-risk seed rows: {len(fixed_seed_rows + fixed_aggregate_seed_rows)}\n")
         f.write(f"Ablation rows: {len(ablation_round_rows)}\n")
         f.write(f"Stress rows: {len(stress_rows_raw)}\n")
         f.write(f"Seeds: {SEEDS}\n")
         f.write(f"Rounds: {ROUNDS}\n")
         f.write(f"Budget per round: {BUDGET_PER_ROUND}\n")
         f.write(f"Runtime seconds: {elapsed:.2f}\n\n")
+        f.write("Hard-regime aggregate summary:\n")
+        for row in sorted(hard_rows, key=lambda r: -float(r["mean_robust_success"])):
+            f.write(
+                f"{row['method']} success={row['mean_robust_success']} ci95={row['ci95_robust_success']} "
+                f"macro_f1={row['mean_failure_macro_f1']} rare_recall={row['mean_rare_failure_recall']} "
+                f"tail={row['mean_tail_risk']} safety={row['mean_safety_violation_rate']}\n"
+            )
+        f.write("\nFixed-risk hard-regime summary at budget 0.10:\n")
+        for row in sorted(fixed_hard_rows, key=lambda r: -float(r["mean_success_at_budget"])):
+            f.write(
+                f"{row['method']} success_at_budget={row['mean_success_at_budget']} ci95={row['ci95_success_at_budget']} "
+                f"coverage={row['mean_coverage_at_budget']} safety={row['mean_safety_at_budget']} tail={row['mean_tail_at_budget']}\n"
+            )
+        f.write("\n")
         f.write("Combined-tail summary:\n")
         for row in sorted(combined_rows, key=lambda r: -float(r["mean_robust_success"])):
             f.write(
